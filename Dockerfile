@@ -1,13 +1,11 @@
 # Dockerfile to run a linux quake live server
-FROM ubuntu:14.04
-MAINTAINER Dan Padgett <dumbledore3@gmail.com>
+FROM ubuntu:16.10
+MAINTAINER Thomas T <tynor@hotmail.com>
 
 RUN dpkg --add-architecture i386
 RUN apt-get update
-RUN apt-get install -y libc6:i386 libstdc++6:i386 wget software-properties-common
-RUN add-apt-repository ppa:fkrull/deadsnakes
-RUN apt-get update
-RUN apt-get install -y python3.5 python3.5-dev build-essential libzmq3-dev
+RUN apt-get install -y libc6:i386 libstdc++6:i386 wget
+RUN apt-get install -y python3.5 python3.5-dev build-essential
 
 RUN useradd -ms /bin/bash quake
 
