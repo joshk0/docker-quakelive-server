@@ -9,7 +9,6 @@ RUN apt-get install -y python3.5 python3.5-dev build-essential
 
 RUN useradd -ms /bin/bash quake
 
-# copy the nice dotfiles that dockerfile/ubuntu gives us:
 RUN cd && cp -R .bashrc .profile /home/quake
 
 WORKDIR /home/quake
