@@ -1,66 +1,66 @@
 # Dockerfile to run a linux quake live server
-FROM ubuntu:16.10
-MAINTAINER Thomas T <tynor@hotmail.com>
-
-RUN dpkg --add-architecture i386
-RUN apt-get update
-RUN apt-get install -y libc6:i386 libstdc++6:i386 wget
-RUN apt-get install -y python3.5 python3.5-dev build-essential
-
-RUN useradd -ms /bin/bash quake
-
-RUN cd && cp -R .bashrc .profile /home/quake
-
-WORKDIR /home/quake
-
-RUN chown -R quake:quake /home/quake
-
-USER quake
-ENV HOME /home/quake
-ENV USER quake
-
-# download and extract steamcmd
-RUN wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz
-RUN tar -xvzf steamcmd_linux.tar.gz
+FROM cm2network/steamcmd
 
 # install the quake live server program
-RUN ./steamcmd.sh +login anonymous +app_update 349090 +quit
-RUN ln -s "Steam/steamapps/common/Quake Live Dedicated Server/" ql
+ENV HOME /home/steam
+ENV QL "${HOME}/Steam/steamapps/common/Quake Live Dedicated Server"
+ENV STEAMCMD "${HOME}/steamcmd/steamcmd.sh"
+RUN ${STEAMCMD} +login anonymous +app_update 349090 +quit
 
 # copy over the custom game files
-USER root
-COPY server.sh ql/
-RUN chown quake:quake ql/server.sh
-COPY server.cfg ql/baseq3/
-RUN chown quake:quake ql/baseq3/server.cfg
-COPY mappool_turboca.txt ql/baseq3/
-RUN chown quake:quake ql/baseq3/mappool_turboca.txt
-COPY turboca.factories ql/baseq3/scripts/
-RUN chown -R quake:quake ql/baseq3/scripts
-COPY workshop.txt ql/baseq3/
-RUN chown quake:quake ql/baseq3/workshop.txt
-COPY access.txt .quakelive/27960/baseq3/
-RUN chown -R quake:quake .quakelive
-COPY download-workshop.sh ./
-RUN chown quake:quake download-workshop.sh
-USER quake
+WORKDIR /home/steam
+ENV PATH ${PATH}:/home/steam/steamcmd
 
 # download the workshop items
-RUN ./download-workshop.sh
+COPY workshop.txt "${QL}/baseq3/"
+COPY download-workshop.sh ./
+RUN ./download-workshop.sh "${QL}/baseq3/workshop.txt"
 
-# download and install latest minqlx
-# http://stackoverflow.com/a/26738019
-RUN wget -O - https://api.github.com/repos/MinoMino/minqlx/releases | grep browser_download_url | head -n 1 | cut -d '"' -f 4 | xargs wget
-RUN cd ql && tar xzf ~/minqlx_v*.tar.gz
+ENV HOME /home/steam
+ENV USER steam
+COPY minqlx-plugins "${QL}/minqlx-plugins"
+COPY Quake-Live/minqlx-plugins "${QL}/minqlx-plugins"
+
+### ROOT INSTALL FOLLOWS
+
 USER root
-COPY minqlx-plugins ql/minqlx-plugins
-COPY Quake-Live/minqlx-plugins ql/minqlx-plugins
-COPY install_minqlx_plugins.sh ./
-RUN cd ql && ~/install_minqlx_plugins.sh
-RUN chown -R quake:quake ql/
-USER quake
+RUN apt-get update \
+    && apt-get -y install wget \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV MINQLX_VERSION v0.5.2
+
+RUN apt-get update \
+    && apt-get -y --no-install-recommends install \
+        build-essential \
+        procps \
+        net-tools \
+        python3-all-dev \
+        python3-pip \
+        redis-server \
+    && pip3 install -r "${QL}/minqlx-plugins/requirements.txt" \
+    && pip3 install \
+        hiredis \
+        pyzmq \
+    && wget -O - https://github.com/MinoMino/minqlx/tarball/${MINQLX_VERSION} | tar -C /tmp/ -xvzf - \
+    && cd /tmp/MinoMino* \
+    && make \
+    && cp -v bin/* "${QL}" \
+    && apt-get -y --purge remove \
+        build-essential \
+        python3-all-dev \
+    && apt-get -y --purge autoremove \
+    && rm -rf /var/lib/apt/lists/*
+
+USER steam
+COPY server.sh "${QL}"
+COPY server.cfg "${QL}/baseq3/"
+RUN mkdir -p .quakelive/27960/baseq3
+COPY access.txt .quakelive/27960/baseq3/
+COPY mappool_turboca.txt "${QL}/baseq3/"
+COPY turboca.factories "${QL}/baseq3/scripts/"
 
 # ports to connect to: 27960 is udp and tcp, 28960 is tcp
 EXPOSE 27960 28960
-
-CMD ql/server.sh 0
+CMD "${QL}/server.sh" 0

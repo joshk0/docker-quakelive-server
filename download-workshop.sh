@@ -1,10 +1,14 @@
 #!/bin/bash
 
+set -e
+
 items=""
 
-for item in $(cat ql/baseq3/workshop.txt | grep -v "^#"); do
-  items="$items +workshop_download_item 282440  $item"
+for item in $(grep -v '^#' "$1"); do
+  items="$items +workshop_download_item 282440 $item"
 done
 
 set -x
-./steamcmd.sh +login anonymous $items +quit && mv steamapps ql/
+"${STEAMCMD}" +login anonymous $items +quit
+mkdir -p "${QL}/steamapps"
+mv "${HOME}/Steam/steamapps/workshop" "${QL}/steamapps"
